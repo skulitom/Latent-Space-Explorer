@@ -18,14 +18,15 @@ The main goal of this project is to create an interactive game that allows users
 
 4. Install the required packages (you may need to add specific versions depending on your setup):
    ```
-   conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
-   pip install diffusers transformers accelerate
+   pip install diffusers==0.30.0 transformers==4.43.3
+   pip install sentencepiece==0.2.0 accelerate==0.33.0 protobuf==5.27.3
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
    pip install pygame
    ```
 
 5. Run the latent space game:
    ```
-   python run_latent_space_game.py --config ./configs/latent_space_game.yaml
+   python run_latent_space_game.py 
    ```
 
 ## Aim
