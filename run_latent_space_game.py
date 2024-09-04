@@ -3,7 +3,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 import argparse
 import yaml
 from models import FluxModel
-from experiments import create_latent_walk_interface
+from ui_manager import create_latent_walk_interface
 
 def main():
     parser = argparse.ArgumentParser(description="Run the Latent Space exploration game.")
