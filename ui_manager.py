@@ -2,10 +2,12 @@ import pygame
 import pygame.freetype
 from PIL import Image
 from latent_explorer import LatentSpaceExplorer
+import asyncio
 
-def create_latent_walk_interface(cfg_path, cfg, flux_model):
+async def create_latent_walk_interface(cfg_path, cfg, flux_model):
     explorer = LatentSpaceExplorer(flux_model, cfg)
-    latent_noise = explorer.initialize_latents()
+    # Remove the line that calls initialize_latents
+    # latent_noise = explorer.initialize_latents()
 
     pygame.init()
     screen = pygame.display.set_mode((cfg["width"], cfg["height"] + 100), pygame.RESIZABLE)
@@ -16,7 +18,7 @@ def create_latent_walk_interface(cfg_path, cfg, flux_model):
     prompt_text = cfg['prompt']
     
     print("Generating initial image...")
-    _, current_image = flux_model.run_flux_inference(prompt_text)
+    _, current_image = await flux_model.run_flux_inference_async(prompt_text)
     print("Initial image generated")
 
     pygame_image = pil_image_to_pygame_surface(current_image)
@@ -94,6 +96,10 @@ def create_latent_walk_interface(cfg_path, cfg, flux_model):
             text_rect = direction_text_surface.get_rect(center=(screen_width // 2, image_height + 10))
             screen.blit(direction_text_surface, text_rect)
 
+    async def update_image(new_prompt, latents):
+        _, new_image = await flux_model.run_flux_inference_async(new_prompt, latents)
+        return pil_image_to_pygame_surface(new_image)
+
     running = True
     while running:
         for event in pygame.event.get():
@@ -126,17 +132,17 @@ def create_latent_walk_interface(cfg_path, cfg, flux_model):
                 move_direction = 'right'
             elif keys[pygame.K_r]:
                 print("Resetting to original image")
-                _, current_image = flux_model.run_flux_inference(prompt_text)
+                explorer.reset_position()
+                _, current_image = await flux_model.run_flux_inference_async(prompt_text)
                 pygame_image = pil_image_to_pygame_surface(current_image)
                 print("Reset completed")
 
             if move_direction and direction_text:
                 try:
                     print(f"Attempting to move: {move_direction}")
-                    latent_noise, new_prompt = explorer.update_latents(latent_noise, prompt_text, direction_text, move_direction, cfg['step_size'])
-                    _, new_image = flux_model.run_flux_inference(new_prompt)
-                    pygame_image = pil_image_to_pygame_surface(new_image)
-                    print("Move completed successfully")
+                    _, new_prompt = explorer.update_latents(prompt_text, direction_text, move_direction, cfg['step_size'])
+                    pygame_image = await update_image(new_prompt, None)
+                    print(f"Move completed successfully. New prompt: {new_prompt}")
                     current_direction = move_direction
                     direction_change_time = pygame.time.get_ticks()
                 except Exception as e:
@@ -152,6 +158,8 @@ def create_latent_walk_interface(cfg_path, cfg, flux_model):
         draw_ui()
         pygame.display.flip()
         clock.tick(30)
+
+        await asyncio.sleep(0)  # Allow other async tasks to run
 
     pygame.quit()
 

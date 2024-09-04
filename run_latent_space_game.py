@@ -4,8 +4,9 @@ import argparse
 import yaml
 from models import FluxModel
 from ui_manager import create_latent_walk_interface
+import asyncio
 
-def main():
+async def main():
     parser = argparse.ArgumentParser(description="Run the Latent Space exploration game.")
     parser.add_argument('--config', type=str, default="./configs/latent_space_game.yaml",
                         help='Path to the game configuration file.')
@@ -15,7 +16,7 @@ def main():
         cfg = yaml.safe_load(yaml_file)
 
     flux_model = FluxModel(cfg)
-    create_latent_walk_interface(args.config, cfg, flux_model)
+    await create_latent_walk_interface(args.config, cfg, flux_model)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
