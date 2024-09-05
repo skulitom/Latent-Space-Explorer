@@ -83,7 +83,7 @@ async def create_latent_walk_interface(cfg_path, cfg, flux_model):
 
         # Draw modern, minimal instructions
         instructions = [
-            "TAB: Toggle input | WASD: Move | R: Reset | ENTER: Submit"
+            "TAB: Toggle input | WASD: Move | R: Reset | ENTER: Set direction"
         ]
         instruction_surface, _ = font.render(instructions[0], instruction_color)
         instruction_rect = instruction_surface.get_rect(center=(screen_width // 2, screen_height - 25))
@@ -95,7 +95,7 @@ async def create_latent_walk_interface(cfg_path, cfg, flux_model):
             screen.blit(direction_text_surface, text_rect)
 
     async def update_image(new_prompt):
-        _, new_image = await flux_model.run_flux_inference_async(new_prompt)
+        new_image = await explorer.generate_image(new_prompt)
         return pil_image_to_pygame_surface(new_image)
 
     running = True
@@ -111,6 +111,7 @@ async def create_latent_walk_interface(cfg_path, cfg, flux_model):
                 elif text_input_active:
                     if event.key == pygame.K_RETURN:
                         print(f"Direction set to: {direction_text}")
+                        await explorer.update_latents(prompt_text, direction_text, 'forward', 0)
                         text_input_active = False
                     elif event.key == pygame.K_BACKSPACE:
                         direction_text = direction_text[:-1]

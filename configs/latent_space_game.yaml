@@ -10,7 +10,7 @@ vae_slicing: true
 vae_tiling: true
 enable_xformers: false
 gpu_id: 0
-diffusion_steps: 2
+diffusion_steps: 2  
 guidance_scale: 0.0
 
 # GAME CONFIGURATIONS
@@ -21,6 +21,7 @@ width: 768   # Increased for better visibility
 step_size: 0.5
 rand_seed: 0
 max_sequence_length: 256
+
 
 # UI CONFIGURATIONS
 ui_colors:
