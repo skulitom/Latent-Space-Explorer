@@ -33,8 +33,8 @@ class LatentSpaceExplorer:
         self.direction_strengths = {}
         self.max_strength = 5
 
-    def update_latents(self, prompt_text: str, direction_text: str, 
-                       move_direction: str, step_size: float) -> Tuple[None, str]:
+    async def update_latents(self, prompt_text: str, direction_text: str, 
+                             move_direction: str, step_size: float) -> Tuple[None, str]:
         if direction_text not in self.direction_strengths:
             self.direction_strengths[direction_text] = 0
 
@@ -49,8 +49,9 @@ class LatentSpaceExplorer:
                 new_prompt += f", {direction}:{strength:.1f}"
 
         self.current_prompt = new_prompt
-        return None, new_prompt
+        return None, self.current_prompt
 
-    def reset_position(self):
+    async def reset_position(self):
         self.direction_strengths.clear()
         self.current_prompt = self.base_prompt
+        return None, self.current_prompt
