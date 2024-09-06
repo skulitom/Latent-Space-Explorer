@@ -2,9 +2,9 @@ import os
 import random
 import torch
 from diffusers import FluxPipeline
-from torch.amp import autocast
 from functools import lru_cache
 import asyncio
+import torch.amp as amp
 
 class FluxModel:
     def __init__(self, model_cfg):
@@ -21,17 +21,10 @@ class FluxModel:
             self.flux_pipeline.enable_gradient_checkpointing()
         
         # Use torch.compile() for newer GPUs if possible
-        if torch.cuda.is_available() and torch.cuda.get_device_capability()[0] >= 7:
-            try:
-                if hasattr(self.flux_pipeline, 'model'):
-                    self.flux_pipeline.model = torch.compile(self.flux_pipeline.model, mode='reduce-overhead')
-                    print("Flux model compiled successfully")
-                else:
-                    print("Flux pipeline doesn't have a 'model' attribute to compile")
-            except Exception as e:
-                print(f"Failed to compile Flux model: {e}")
+        self._compile_model()
 
         self.cache_size = model_cfg.get("cache_size", 100)
+        self.scaler = amp.GradScaler()  # Removed 'cuda' argument as it's not needed
 
     def _load_flux_pipeline(self, model_id):
         print("Loading Flux model...")
@@ -45,6 +38,17 @@ class FluxModel:
         print("Flux model loaded\n")
         return flux_pipeline
 
+    def _compile_model(self):
+        if torch.cuda.is_available() and torch.cuda.get_device_capability()[0] >= 7:
+            try:
+                if hasattr(self.flux_pipeline, 'model'):
+                    self.flux_pipeline.model = torch.compile(self.flux_pipeline.model, mode='reduce-overhead')
+                    print("Flux model compiled successfully")
+                else:
+                    print("Flux pipeline doesn't have a 'model' attribute to compile")
+            except Exception as e:
+                print(f"Failed to compile Flux model: {e}")
+
     @torch.no_grad()
     def encode_prompt(self, prompt):
         # Flux doesn't have a separate encoding step, so we'll return the prompt as is
@@ -56,29 +60,29 @@ class FluxModel:
 
     @torch.no_grad()
     def run_flux_inference(self, prompt, latent_noise=None):
-        with autocast('cuda', dtype=torch.float16):
-            image = self.flux_pipeline(
-                prompt=prompt,
-                guidance_scale=self.guidance_scale,
-                height=self.height,
-                width=self.width,
-                num_inference_steps=self.diffusion_steps,
-                max_sequence_length=self.max_sequence_length,
-            ).images[0]
-        return None, image
+        try:
+            return None, self._cached_inference(prompt, self.height, self.width, self.diffusion_steps, self.guidance_scale)
+        except Exception as e:
+            print(f"Error during inference: {e}")
+            return None, None
 
     @lru_cache(maxsize=100)
     def _cached_inference(self, prompt, height, width, steps, guidance_scale):
-        with autocast('cuda', dtype=torch.float16):
-            image = self.flux_pipeline(
-                prompt=prompt,
-                guidance_scale=guidance_scale,
-                height=height,
-                width=width,
-                num_inference_steps=steps,
-                max_sequence_length=self.max_sequence_length,
-            ).images[0]
-        return image
+        with amp.autocast('cuda', dtype=torch.float16):
+            try:
+                image = self.flux_pipeline(
+                    prompt=prompt,
+                    guidance_scale=guidance_scale,
+                    height=height,
+                    width=width,
+                    num_inference_steps=steps,
+                    max_sequence_length=self.max_sequence_length,
+                ).images[0]
+                return image
+            except Exception as e:
+                print(f"Error in _cached_inference: {e}")
+                return None
 
     async def run_flux_inference_async(self, prompt, latent_noise=None):
-        return self.run_flux_inference(prompt, latent_noise)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.run_flux_inference, prompt, latent_noise)

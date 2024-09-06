@@ -6,6 +6,8 @@ from typing import Tuple, Dict
 import logging
 from clip_slider_pipeline import CLIPSliderFlux
 from functools import lru_cache
+import asyncio
+import traceback
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,7 +21,7 @@ class DirectionMapper(nn.Module):
             nn.ReLU(),
             nn.Linear(2048, 2048, dtype=dtype),
             nn.ReLU(),
-            nn.Linear(2048, np.prod(latent_shape), dtype=dtype),
+            nn.Linear(2048, int(np.prod(latent_shape)), dtype=dtype),
             nn.Tanh()
         )
     
@@ -35,24 +37,44 @@ class LatentSpaceExplorer:
         self.direction_strengths = {}
         self.max_strength = 5
         self.clip_slider = CLIPSliderFlux(flux_model, flux_model.device, config)
+        
+        # Initialize DirectionMapper here
+        input_dim = 768  # Adjust this based on your CLIP model's output dimension
+        latent_shape = tuple(int(x) for x in flux_model.get_expected_latent_shape())
+        self.direction_mapper = torch.jit.script(DirectionMapper(input_dim, latent_shape))
+
+    async def _cached_direction_vector(self, direction_text):
+        opposite = f"not {direction_text}"
+        return await self.clip_slider.find_latent_direction(direction_text, opposite)
 
     async def update_latents(self, prompt_text: str, direction_text: str, 
                              move_direction: str, step_size: float) -> tuple[None, str]:
         if direction_text not in self.direction_strengths:
             self.direction_strengths[direction_text] = 0
-            opposite = f"not {direction_text}"
-            await self.clip_slider.find_latent_direction(direction_text, opposite)
+            await self._cached_direction_vector(direction_text)
 
-        if move_direction == 'forward':
-            self.direction_strengths[direction_text] = min(self.direction_strengths[direction_text] + step_size, self.max_strength)
-        elif move_direction == 'backward':
-            self.direction_strengths[direction_text] = max(self.direction_strengths[direction_text] - step_size, -self.max_strength)
+        self.direction_strengths[direction_text] = self._update_strength(
+            self.direction_strengths[direction_text], move_direction, step_size
+        )
 
         return None, self.base_prompt
+
+    def _update_strength(self, current_strength: float, move_direction: str, step_size: float) -> float:
+        if move_direction == 'forward':
+            return min(current_strength + step_size, self.max_strength)
+        elif move_direction == 'backward':
+            return max(current_strength - step_size, -self.max_strength)
+        return current_strength
 
     async def reset_position(self):
         self.direction_strengths.clear()
         return None, self.base_prompt
 
     async def generate_image(self, prompt: str):
-        return await self.clip_slider.generate(prompt, self.direction_strengths)
+        try:
+            image = await self.clip_slider.generate(prompt, self.direction_strengths)
+            return image
+        except Exception as e:
+            print(f"Error generating image: {e}")
+            traceback.print_exc()
+            return None
