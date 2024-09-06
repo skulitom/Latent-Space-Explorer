@@ -188,7 +188,13 @@ class LatentWalkInterface:
     async def move_image(self, move_direction):
         self.loading = True
         _, new_prompt = await self.explorer.update_latents(self.prompt_text, self.direction_text, move_direction, self.cfg['step_size'])
-        self.current_image = await self.update_image(new_prompt)
+        
+        # Generate a single image for the new position
+        self.current_image = await self.explorer.generate_image(new_prompt)
+        print(f"Generated image for move: {move_direction}")
+        print(f"Image size: {self.current_image.size}, Mode: {self.current_image.mode}")
+        self.draw()
+
         print(f"Move completed successfully. New prompt: {new_prompt}")
         self.current_direction = move_direction
         self.direction_change_time = pygame.time.get_ticks()

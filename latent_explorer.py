@@ -32,31 +32,23 @@ class LatentSpaceExplorer:
     def __init__(self, flux_model, config):
         self.flux_model = flux_model
         self.config = config
-        self.base_prompt = config.get("prompt", "")
-        self.current_prompt = self.base_prompt
+        self.base_prompt = config.get("prompt", "A beautiful Fantasy Landscape")
         self.direction_strengths = {}
         self.max_strength = 5
         self.clip_slider = CLIPSliderFlux(flux_model, flux_model.device, config)
-        
-        # Initialize DirectionMapper here
-        input_dim = 768  # Adjust this based on your CLIP model's output dimension
-        latent_shape = tuple(int(x) for x in flux_model.get_expected_latent_shape())
-        self.direction_mapper = torch.jit.script(DirectionMapper(input_dim, latent_shape))
-
-    async def _cached_direction_vector(self, direction_text):
-        opposite = f"not {direction_text}"
-        return await self.clip_slider.find_latent_direction(direction_text, opposite)
+        print(f"LatentSpaceExplorer initialized with config: {config}")
 
     async def update_latents(self, prompt_text: str, direction_text: str, 
                              move_direction: str, step_size: float) -> tuple[None, str]:
         if direction_text not in self.direction_strengths:
             self.direction_strengths[direction_text] = 0
-            await self._cached_direction_vector(direction_text)
+            await self.clip_slider.find_latent_direction(direction_text, f"not {direction_text}")
 
+        old_strength = self.direction_strengths[direction_text]
         self.direction_strengths[direction_text] = self._update_strength(
-            self.direction_strengths[direction_text], move_direction, step_size
+            old_strength, move_direction, step_size
         )
-
+        
         return None, self.base_prompt
 
     def _update_strength(self, current_strength: float, move_direction: str, step_size: float) -> float:
@@ -72,7 +64,8 @@ class LatentSpaceExplorer:
 
     async def generate_image(self, prompt: str):
         try:
-            image = await self.clip_slider.generate(prompt, self.direction_strengths)
+            print(f"Generating image with config: diffusion_steps={self.config['diffusion_steps']}, guidance_scale={self.config['guidance_scale']}")
+            image = await self.clip_slider.generate_image(self.base_prompt, self.direction_strengths)
             return image
         except Exception as e:
             print(f"Error generating image: {e}")

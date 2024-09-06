@@ -1,11 +1,11 @@
 import torch
-from tqdm import tqdm
 from PIL import Image
 from functools import lru_cache
 from typing import List, Dict
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import traceback
+import numpy as np
 
 class CLIPSliderFlux:
     def __init__(self, flux_model, device: torch.device, config):
@@ -13,7 +13,7 @@ class CLIPSliderFlux:
         self.flux_model = flux_model
         self.direction_vectors = {}
         self.config = config
-        self.thread_pool = ThreadPoolExecutor(max_workers=2)  # Adjust based on your system
+        print(f"Initialized CLIPSliderFlux with config: {self.config}")
 
     @lru_cache(maxsize=100)
     def _cached_text_encoding(self, text):
@@ -38,42 +38,23 @@ class CLIPSliderFlux:
         self.direction_vectors[direction] = diff
         return diff
 
-    async def generate(self, prompt: str, directions: dict, **pipeline_kwargs):
-        # print(f"Generating image for prompt: {prompt}")
-        # print(f"Directions: {directions}")
-        loop = asyncio.get_running_loop()
-        try:
-            result = await loop.run_in_executor(self.thread_pool, self._generate_sync, prompt, directions, pipeline_kwargs)
-            # print("Image generated successfully")
-            return result
-        except Exception as e:
-            print(f"Error in generate method: {e}")
-            traceback.print_exc()
-            return None
-
-    def _generate_sync(self, prompt: str, directions: dict, pipeline_kwargs):
+    async def generate_image(self, prompt: str, directions: dict):
         with torch.no_grad():
-            try:
-                prompt_embeds = self._cached_text_encoding(prompt)
-                pooled_prompt_embeds = self._get_pooled_prompt_embeds(prompt)
+            prompt_embeds = self._cached_text_encoding(prompt)
+            pooled_prompt_embeds = self._get_pooled_prompt_embeds(prompt)
 
-                for direction, scale in directions.items():
-                    if direction in self.direction_vectors:
-                        prompt_embeds += self.direction_vectors[direction] * scale
+            for direction, scale in directions.items():
+                if direction in self.direction_vectors:
+                    prompt_embeds += self.direction_vectors[direction] * scale
 
-                images = self.flux_model.flux_pipeline(
-                    prompt_embeds=prompt_embeds,
-                    pooled_prompt_embeds=pooled_prompt_embeds,
-                    num_inference_steps=self.config['diffusion_steps'],
-                    guidance_scale=self.config['guidance_scale'],
-                    **pipeline_kwargs
-                ).images
+            image = self.flux_model.flux_pipeline(
+                prompt_embeds=prompt_embeds,
+                pooled_prompt_embeds=pooled_prompt_embeds,
+                num_inference_steps=self.config['diffusion_steps'],
+                guidance_scale=self.config['guidance_scale'],
+            ).images[0]
 
-                return images[0]
-            except Exception as e:
-                print(f"Error in _generate_sync: {e}")
-                traceback.print_exc()
-                return None
+            return image
 
     def _get_pooled_prompt_embeds(self, prompt: str):
         return self.flux_model.flux_pipeline.text_encoder(
@@ -86,7 +67,6 @@ class CLIPSliderFlux:
             ).input_ids.to(self.device),
             output_hidden_states=False
         ).pooler_output
-
     async def spectrum(self,
                  prompt: str,
                  direction: str,
@@ -100,7 +80,7 @@ class CLIPSliderFlux:
         images = []
         for i in range(steps):
             scale = low_scale + (high_scale - low_scale) * i / (steps - 1)
-            image = await self.generate(prompt, {direction: scale}, seed, **pipeline_kwargs)
+            image = await self.generate_image(prompt, {direction: scale})
             images.append(image.resize((512,512)))
 
         canvas = Image.new('RGB', (640 * steps, 640))
