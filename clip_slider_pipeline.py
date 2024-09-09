@@ -14,6 +14,7 @@ class CLIPSliderFlux:
         self.direction_vectors = {}
         self.config = config
         print(f"Initialized CLIPSliderFlux with config: {self.config}")
+        self.thread_pool = ThreadPoolExecutor(max_workers=4)  # Adjust max_workers as needed
 
     @lru_cache(maxsize=100)
     def _cached_text_encoding(self, text):
@@ -55,6 +56,8 @@ class CLIPSliderFlux:
                 pooled_prompt_embeds=pooled_prompt_embeds,
                 num_inference_steps=self.config['diffusion_steps'],
                 guidance_scale=self.config['guidance_scale'],
+                height=800,  # Set height to half of the default (1024)
+                width=800,   # Set width to half of the default (1024)
             ).images[0]
 
             return image
@@ -116,4 +119,5 @@ class CLIPSliderFlux:
         return images
 
     def __del__(self):
-        self.thread_pool.shutdown(wait=True)
+        if hasattr(self, 'thread_pool'):
+            self.thread_pool.shutdown()

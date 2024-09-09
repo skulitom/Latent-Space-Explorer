@@ -3,7 +3,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 import argparse
 import yaml
 from models import FluxModel
-from ui_manager import create_latent_walk_interface
+from latent_walk_interface import LatentWalkInterface
 import asyncio
 import sys
 import traceback
@@ -18,6 +18,10 @@ def load_config(config_path: str) -> dict:
     except yaml.YAMLError as e:
         print(f"Error parsing config file: {e}")
         sys.exit(1)
+
+async def create_latent_walk_interface(cfg_path, cfg, flux_model):
+    interface = LatentWalkInterface(cfg, flux_model)
+    await interface.run()
 
 async def main():
     parser = argparse.ArgumentParser(description="Run the Latent Space exploration game.")
