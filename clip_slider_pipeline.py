@@ -38,7 +38,7 @@ class CLIPSliderFlux:
         self.direction_vectors[direction] = diff
         return diff
 
-    async def generate_image(self, prompt: str, directions: dict):
+    async def generate_image(self, prompt: str, directions: dict, seed: int = None):
         with torch.no_grad():
             prompt_embeds = self._cached_text_encoding(prompt)
             pooled_prompt_embeds = self._get_pooled_prompt_embeds(prompt)
@@ -47,6 +47,9 @@ class CLIPSliderFlux:
                 if direction in self.direction_vectors:
                     prompt_embeds += self.direction_vectors[direction] * scale
 
+            if seed is not None:
+                torch.manual_seed(seed)
+            
             image = self.flux_model.flux_pipeline(
                 prompt_embeds=prompt_embeds,
                 pooled_prompt_embeds=pooled_prompt_embeds,

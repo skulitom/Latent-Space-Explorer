@@ -36,6 +36,7 @@ class LatentSpaceExplorer:
         self.direction_strengths = {}
         self.max_strength = 5
         self.clip_slider = CLIPSliderFlux(flux_model, flux_model.device, config)
+        self.seed = config.get("rand_seed", 0)  # Get seed from config or use a default
         print(f"LatentSpaceExplorer initialized with config: {config}")
 
     async def update_latents(self, prompt_text: str, direction_text: str, 
@@ -65,7 +66,8 @@ class LatentSpaceExplorer:
     async def generate_image(self, prompt: str):
         try:
             print(f"Generating image with config: diffusion_steps={self.config['diffusion_steps']}, guidance_scale={self.config['guidance_scale']}")
-            image = await self.clip_slider.generate_image(self.base_prompt, self.direction_strengths)
+            image = await self.clip_slider.generate_image(self.base_prompt, self.direction_strengths, seed=self.seed)
+            print("Base prompt: ", self.base_prompt)
             return image
         except Exception as e:
             print(f"Error generating image: {e}")
