@@ -3,6 +3,12 @@ import pygame.freetype
 from PIL import Image
 
 class UIManager:
+    # UI Constants
+    PADDING = 20
+    INPUT_HEIGHT = 40
+    INSTRUCTION_HEIGHT = 30
+    CURSOR_BLINK_TIME = 500  # Cursor blinks every 500ms
+
     def __init__(self, interface):
         self.interface = interface
         self.setup_ui_elements()
@@ -16,7 +22,6 @@ class UIManager:
         self.accent_color = self.interface.cfg.get('ui_colors', {}).get('accent_color', (0, 120, 215))
         self.input_bg = self.interface.cfg.get('ui_colors', {}).get('text_input_bg', (30, 30, 30))
         self.input_border = self.interface.cfg.get('ui_colors', {}).get('text_input_border', (45, 45, 45))
-        self.cursor_blink_time = 500  # Cursor blinks every 500ms
 
     def draw(self):
         self.interface.screen.fill(self.bg_color)
@@ -30,13 +35,26 @@ class UIManager:
     def draw_main_content(self):
         if self.interface.current_image:
             pygame_image = self.pil_image_to_pygame_surface(self.interface.current_image)
-            scaled_image = pygame.transform.scale(pygame_image, (self.interface.width - 40, self.interface.height - 20))
-            image_rect = scaled_image.get_rect(center=(self.interface.width // 2, (self.interface.height - 20) // 2 + 10))
+            
+            # Calculate the size for a square image, using most of the available width
+            image_size = min(self.interface.width - 2 * self.PADDING, 
+                             self.interface.height - 2 * self.PADDING - self.INPUT_HEIGHT - self.INSTRUCTION_HEIGHT)
+            scaled_image = pygame.transform.scale(pygame_image, (image_size, image_size))
+            
+            # Center the image
+            image_rect = scaled_image.get_rect(center=(self.interface.width // 2, 
+                                                       (self.interface.height - self.INPUT_HEIGHT - self.INSTRUCTION_HEIGHT) // 2))
             self.interface.screen.blit(scaled_image, image_rect)
             pygame.draw.rect(self.interface.screen, self.input_border, image_rect, 1)
 
     def draw_input_box(self):
-        input_box = pygame.Rect(20, self.interface.height + 10, self.interface.width - 40, 40)
+        # Calculate input box width based on the image size
+        image_size = min(self.interface.width - 2 * self.PADDING, 
+                         self.interface.height - 2 * self.PADDING - self.INPUT_HEIGHT - self.INSTRUCTION_HEIGHT)
+        input_box = pygame.Rect((self.interface.width - image_size) // 2, 
+                                self.interface.height - self.INPUT_HEIGHT - self.INSTRUCTION_HEIGHT, 
+                                image_size, self.INPUT_HEIGHT)
+        
         pygame.draw.rect(self.interface.screen, self.input_bg, input_box)
         pygame.draw.rect(self.interface.screen, self.input_border, input_box, 1)
         text_surface, _ = self.font.render(self.interface.direction_text, self.text_color)
@@ -45,7 +63,7 @@ class UIManager:
         # Draw blinking cursor
         if self.interface.text_input_active:
             self.cursor_timer += self.interface.clock.get_time()
-            if self.cursor_timer >= self.cursor_blink_time:
+            if self.cursor_timer >= self.CURSOR_BLINK_TIME:
                 self.cursor_visible = not self.cursor_visible
                 self.cursor_timer = 0
 
@@ -57,7 +75,8 @@ class UIManager:
     def draw_instructions(self):
         instructions = "TAB: Toggle input | WASD: Move | R: Reset | ENTER: Set direction"
         instruction_surface, _ = self.font.render(instructions, self.text_color)
-        instruction_rect = instruction_surface.get_rect(center=(self.interface.width // 2, self.interface.height + 75))
+        instruction_rect = instruction_surface.get_rect(center=(self.interface.width // 2, 
+                                                                self.interface.height - self.INSTRUCTION_HEIGHT // 2))
         self.interface.screen.blit(instruction_surface, instruction_rect)
 
     def draw_map_panel(self):
