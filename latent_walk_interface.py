@@ -10,6 +10,7 @@ class LatentWalkInterface:
     def __init__(self, cfg, flux_model):
         self.cfg = cfg
         self.explorer = LatentSpaceExplorer(flux_model, cfg)
+        self.minimap_panel_width = 250  # Reduced minimap panel width
         self.setup_interface()
         self.ui_manager = UIManager(self)
         self.event_handler = EventHandler(self)
@@ -26,11 +27,9 @@ class LatentWalkInterface:
     def setup_interface(self):
         pygame.init()
         pygame.freetype.init()
-        self.width = self.cfg.get("width", 800)
-        self.height = self.cfg.get("height", 600)
-        self.minimap_panel_width = 200
-        self.total_width = self.width + self.minimap_panel_width
-        self.screen = pygame.display.set_mode((self.total_width, self.height + 100), pygame.RESIZABLE)
+        self.width = self.cfg.get("width", 800)  # Increased window width
+        self.height = self.cfg.get("height", 800)  # Increased window height
+        self.screen = pygame.display.set_mode((self.width, self.height))  # Remove minimap_panel_width from total width
         pygame.display.set_caption("Latent Space Explorer")
 
     async def run(self):

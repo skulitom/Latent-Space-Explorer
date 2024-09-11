@@ -16,8 +16,8 @@ guidance_scale: 0.0
 # GAME CONFIGURATIONS
 output_path: ./game_results
 prompt: A beautiful Fantasy Landscape
-height: 512  # Increased for better visibility
-width: 512   # Increased for better visibility
+height: 650
+width: 800
 step_size: 0.5
 rand_seed: 0
 max_sequence_length: 256
