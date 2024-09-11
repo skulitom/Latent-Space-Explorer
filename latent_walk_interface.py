@@ -5,6 +5,7 @@ from ui_manager import UIManager
 from event_handler import EventHandler
 from minimap import Minimap
 from latent_explorer import LatentSpaceExplorer
+import numpy as np
 
 class LatentWalkInterface:
     def __init__(self, cfg, flux_model):
@@ -23,6 +24,7 @@ class LatentWalkInterface:
         self.direction_text = ""
         self.text_input_active = False  # Add this line
         self.clock = pygame.time.Clock()
+        self.current_vector = np.zeros(2)  # Initialize with a zero vector
 
     def setup_interface(self):
         pygame.init()
@@ -87,6 +89,7 @@ class LatentWalkInterface:
         self.ui_manager.add_log_message(f"Direction: {self.direction_text}")
         print(f"Move completed successfully. New prompt: {new_prompt}")
         self.minimap.update_position(move_direction)
+        self.current_vector = self._update_vector(move_direction)
 
     async def update_image(self, new_prompt):
         self.ui_manager.add_log_message("Generating new image...")
@@ -96,8 +99,22 @@ class LatentWalkInterface:
         self.ui_manager.add_log_message("Image generated")
         return image
 
+    def _update_vector(self, move_direction):
+        step_size = self.cfg['step_size']
+        if move_direction == 'forward':
+            return self.current_vector + np.array([0, step_size])
+        elif move_direction == 'backward':
+            return self.current_vector + np.array([0, -step_size])
+        elif move_direction == 'left':
+            return self.current_vector + np.array([-step_size, 0])
+        elif move_direction == 'right':
+            return self.current_vector + np.array([step_size, 0])
+        return self.current_vector
+
     def set_direction(self):
         if self.direction_text:
+            self.current_vector = self.ui_manager._calculate_direction_vector(self.direction_text)
             self.ui_manager.add_log_message(f"Direction set: {self.direction_text}")
         else:
+            self.current_vector = np.zeros(2)
             self.ui_manager.add_log_message("Direction cleared")

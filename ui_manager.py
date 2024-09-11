@@ -1,6 +1,8 @@
 import pygame
 import pygame.freetype
 from PIL import Image
+import numpy as np
+import math
 
 class UIManager:
     # UI Constants
@@ -73,7 +75,8 @@ class UIManager:
 
         self._draw_minimap_title(panel_rect)
         minimap_rect = self._draw_minimap(panel_rect)
-        self._draw_log_display(panel_rect, minimap_rect)
+        log_rect = self._draw_log_display(panel_rect, minimap_rect)
+        self._draw_direction_vector(panel_rect, log_rect)
 
     def _get_side_panel_rect(self):
         return pygame.Rect(self.interface.width - self.interface.minimap_panel_width, 0,
@@ -123,6 +126,72 @@ class UIManager:
 
         # Blit the log surface onto the screen
         self.interface.screen.blit(log_surface, (log_container_rect.left + 5, log_container_rect.top + 5))
+
+        return log_container_rect
+
+    def _draw_direction_vector(self, panel_rect, log_rect):
+        vector_title_surface = self.title_font.render("Direction Vector", True, self.colors['text'])
+        vector_title_rect = vector_title_surface.get_rect(topleft=(panel_rect.left + self.PADDING, log_rect.bottom + self.PADDING))
+        self.interface.screen.blit(vector_title_surface, vector_title_rect)
+
+        vector_container_rect = pygame.Rect(
+            panel_rect.left + self.PADDING,
+            vector_title_rect.bottom + 5,
+            panel_rect.width - 2 * self.PADDING,
+            80  # Reduced height of the vector visualization
+        )
+        pygame.draw.rect(self.interface.screen, self.log_bg_color, vector_container_rect)
+        pygame.draw.rect(self.interface.screen, self.colors['input_border'], vector_container_rect, 1)
+
+        # Create a surface for the vector visualization
+        vector_surface = pygame.Surface((vector_container_rect.width - 2, vector_container_rect.height - 2))
+        vector_surface.fill(self.log_bg_color)
+
+        # Draw coordinate system
+        center = (vector_surface.get_width() // 2, vector_surface.get_height() // 2)
+        radius = min(center[0], center[1]) - 5
+        pygame.draw.circle(vector_surface, self.colors['text'], center, radius, 1)
+        pygame.draw.line(vector_surface, self.colors['text'], (center[0] - radius, center[1]), (center[0] + radius, center[1]), 1)
+        pygame.draw.line(vector_surface, self.colors['text'], (center[0], center[1] - radius), (center[0], center[1] + radius), 1)
+
+        # Draw direction vector
+        if np.any(self.interface.current_vector):
+            end_point = (
+                int(center[0] + self.interface.current_vector[0] * radius),
+                int(center[1] - self.interface.current_vector[1] * radius)
+            )
+            pygame.draw.line(vector_surface, self.colors['accent'], center, end_point, 2)
+            self._draw_arrow_head(vector_surface, self.colors['accent'], center, end_point)
+
+        # Draw labels
+        self._draw_label(vector_surface, "N", (center[0], 5))
+        self._draw_label(vector_surface, "S", (center[0], vector_surface.get_height() - 5))
+        self._draw_label(vector_surface, "W", (5, center[1]))
+        self._draw_label(vector_surface, "E", (vector_surface.get_width() - 5, center[1]))
+
+        # Blit the vector surface onto the screen
+        self.interface.screen.blit(vector_surface, (vector_container_rect.left + 1, vector_container_rect.top + 1))
+
+    def _draw_arrow_head(self, surface, color, start, end):
+        rotation = math.degrees(math.atan2(start[1] - end[1], end[0] - start[0])) + 90
+        pts = [(0, 0), (-4, -10), (4, -10)]
+        cos_r, sin_r = math.cos(math.radians(rotation)), math.sin(math.radians(rotation))
+        rotated_pts = [(cos_r * x + sin_r * y, -sin_r * x + cos_r * y) for x, y in pts]
+        translated_pts = [(int(x + end[0]), int(y + end[1])) for x, y in rotated_pts]
+        pygame.draw.polygon(surface, color, translated_pts)
+
+    def _draw_label(self, surface, text, position):
+        label_surface, _ = self.font.render(text, self.colors['text'])
+        label_rect = label_surface.get_rect(center=position)
+        surface.blit(label_surface, label_rect)
+
+    def _calculate_direction_vector(self, direction_text):
+        # This is a placeholder implementation. You should replace this with
+        # the actual calculation based on your latent space representation
+        words = direction_text.lower().split()
+        x = sum(ord(c) for word in words for c in word) % 100 / 100
+        y = len(words) / 10
+        return np.array([x, y]) / np.linalg.norm([x, y])
 
     def draw_bottom_panel(self):
         panel_rect = self._get_bottom_panel_rect()
