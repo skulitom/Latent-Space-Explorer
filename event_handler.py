@@ -18,6 +18,7 @@ class EventHandler:
             if event.key == pygame.K_RETURN:
                 print(f"Direction set to: {self.interface.direction_text}")
                 self.interface.text_input_active = False
+                self.interface.set_direction()  # This line is now correct
             elif event.key == pygame.K_BACKSPACE:
                 self.interface.direction_text = self.interface.direction_text[:-1]
             else:

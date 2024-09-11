@@ -29,25 +29,24 @@ class DirectionMapper(nn.Module):
         return self.net(combined_embed).view(-1, *self.latent_shape)
 
 class LatentSpaceExplorer:
-    def __init__(self, flux_model, config):
+    def __init__(self, flux_model, config: Dict):
         self.flux_model = flux_model
         self.config = config
         self.base_prompt = config.get("prompt", "A beautiful Fantasy Landscape")
         self.direction_strengths = {}
         self.max_strength = 5
         self.clip_slider = CLIPSliderFlux(flux_model, flux_model.device, config)
-        self.seed = config.get("rand_seed", 0)  # Get seed from config or use a default
-        print(f"LatentSpaceExplorer initialized with config: {config}")
+        self.seed = config.get("rand_seed", 0)
+        logger.info(f"LatentSpaceExplorer initialized with config: {config}")
 
     async def update_latents(self, prompt_text: str, direction_text: str, 
-                             move_direction: str, step_size: float) -> tuple[None, str]:
+                             move_direction: str, step_size: float) -> Tuple[None, str]:
         if direction_text not in self.direction_strengths:
             self.direction_strengths[direction_text] = 0
             await self.clip_slider.find_latent_direction(direction_text, f"not {direction_text}")
 
-        old_strength = self.direction_strengths[direction_text]
         self.direction_strengths[direction_text] = self._update_strength(
-            old_strength, move_direction, step_size
+            self.direction_strengths[direction_text], move_direction, step_size
         )
         
         return None, self.base_prompt
@@ -59,17 +58,17 @@ class LatentSpaceExplorer:
             return max(current_strength - step_size, -self.max_strength)
         return current_strength
 
-    async def reset_position(self):
+    async def reset_position(self) -> Tuple[None, str]:
         self.direction_strengths.clear()
         return None, self.base_prompt
 
     async def generate_image(self, prompt: str):
         try:
-            print(f"Generating image with config: diffusion_steps={self.config['diffusion_steps']}, guidance_scale={self.config['guidance_scale']}")
+            logger.info(f"Generating image with config: diffusion_steps={self.config['diffusion_steps']}, guidance_scale={self.config['guidance_scale']}")
             image = await self.clip_slider.generate_image(self.base_prompt, self.direction_strengths, seed=self.seed)
-            print("Base prompt: ", self.base_prompt)
+            logger.info(f"Base prompt: {self.base_prompt}")
             return image
         except Exception as e:
-            print(f"Error generating image: {e}")
-            traceback.print_exc()
+            logger.error(f"Error generating image: {e}")
+            logger.error(traceback.format_exc())
             return None

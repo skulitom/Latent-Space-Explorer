@@ -48,12 +48,14 @@ class LatentWalkInterface:
         print("Game closed.")
 
     async def generate_initial_image(self):
-        print("Generating initial image...")
+        self.ui_manager.add_log_message("Generating initial image...")
+        self.ui_manager.draw()  # Force an immediate update of the display
+        pygame.display.flip()
         self.current_image = await self.explorer.generate_image(self.prompt_text)
         if self.current_image:
-            print("Initial image generated successfully")
+            self.ui_manager.add_log_message("Initial image generated successfully")
         else:
-            print("Failed to generate initial image")
+            self.ui_manager.add_log_message("Failed to generate initial image")
 
     def update(self):
         if self.task_queue and not self.processing_task:
@@ -66,16 +68,36 @@ class LatentWalkInterface:
         self.processing_task = None
 
     async def reset_image(self):
+        self.ui_manager.add_log_message("Resetting image...")
+        self.ui_manager.draw()  # Force an immediate update of the display
+        pygame.display.flip()
         _, reset_prompt = await self.explorer.reset_position()
         self.current_image = await self.update_image(reset_prompt)
+        self.ui_manager.add_log_message("Reset completed")
         print("Reset completed")
         self.minimap.reset_position()
 
     async def move_image(self, move_direction):
+        self.ui_manager.add_log_message(f"Moving {move_direction}...")
+        self.ui_manager.draw()  # Force an immediate update of the display
+        pygame.display.flip()
         _, new_prompt = await self.explorer.update_latents(self.prompt_text, self.direction_text, move_direction, self.cfg['step_size'])
         self.current_image = await self.explorer.generate_image(new_prompt)
+        self.ui_manager.add_log_message(f"Move {move_direction} completed")
+        self.ui_manager.add_log_message(f"Direction: {self.direction_text}")
         print(f"Move completed successfully. New prompt: {new_prompt}")
         self.minimap.update_position(move_direction)
 
     async def update_image(self, new_prompt):
-        return await self.explorer.generate_image(new_prompt)
+        self.ui_manager.add_log_message("Generating new image...")
+        self.ui_manager.draw()  # Force an immediate update of the display
+        pygame.display.flip()
+        image = await self.explorer.generate_image(new_prompt)
+        self.ui_manager.add_log_message("Image generated")
+        return image
+
+    def set_direction(self):
+        if self.direction_text:
+            self.ui_manager.add_log_message(f"Direction set: {self.direction_text}")
+        else:
+            self.ui_manager.add_log_message("Direction cleared")
